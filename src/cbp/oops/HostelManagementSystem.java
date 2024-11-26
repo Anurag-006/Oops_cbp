@@ -38,11 +38,15 @@ class Student extends Person {
         String sqlQuery = "select * from student";
         PrintRows.printRows(sqlQuery);
     }
-    public void payFee(int paidAmount) {
-        String sqlQuery = String.format("update student set feepending = %d where id = '%s'",this.feePending - paidAmount, this.id);
+    public static void payFee(String id) {
+        System.out.println("Enter amount");
+        Scanner inp = new Scanner(System.in);
+        int paidAmount = inp.nextInt();
+        String sqlQuery = String.format("update student set feepending = feepending - %d where id = '%s'",paidAmount, id);
         ReadAndRemoveRows.updateRow(sqlQuery);
     }
     public void changePassword(String pass) {
+
         this.password = pass;
         String query = String.format("update student set password = '%s' where id = '%s'", this.password, this.id);
     }

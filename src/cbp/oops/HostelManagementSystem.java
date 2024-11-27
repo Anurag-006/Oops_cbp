@@ -125,12 +125,19 @@ class Admin extends Person {
         }catch (SQLException e) {
             e.printStackTrace();
         }
+        if (rno != "") {
+            query = String.format("insert into student values ('%s', '%s', '%s', %d, %d, '%s', %d)", sid, sname, scourse, year, 135000, sid, Integer.parseInt(rno));
+            ReadAndRemoveRows.addRow(query);
 
-        query = String.format("update room set vacancies = vacancies - 1 where rno = %d", Integer.parseInt(rno));
-        ReadAndRemoveRows.updateRow(query);
+            query = String.format("update room set vacancies = vacancies - 1 where rno = %d", Integer.parseInt(rno));
+            ReadAndRemoveRows.updateRow(query);
 
-        query = String.format("insert into student values ('%s', '%s', '%s', %d, %d, '%s', %d)",sid, sname, scourse, year, 135000, sid, Integer.parseInt(rno));
-        ReadAndRemoveRows.addRow(query);
+            query = "select * from student";
+            System.out.println("Student Added.");
+            PrintRows.printRows(query);
+        } else {
+            System.out.println("Unable to find the room.");
+        }
     }
     public static void removeStudent() {
         System.out.println("Enter student id: ");
@@ -140,6 +147,9 @@ class Admin extends Person {
         ReadAndRemoveRows.updateRow(query);
         query = String.format("delete from student where id = '%s'",sid);
         ReadAndRemoveRows.removeRow(query);
+        query = "select * from student";
+        System.out.println("Student Removed.");
+        PrintRows.printRows(query);
     }
 
     public static void availableSlots() {

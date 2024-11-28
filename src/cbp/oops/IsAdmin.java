@@ -29,7 +29,7 @@ public class IsAdmin{
         if (authenticate(un,pa)) {
             System.out.println("MENU FOR HOSTEL STUFF");
             do{
-                System.out.println("Enter : 1 for Inserting Student, 2 for Removing Student, 3 for Available Slots, 4 for Fee Pending list, 5 for Resolving Complaints, 6 for exit");
+                System.out.println("Enter : 1 for Inserting Student, 2 for Removing Student, 3 for Available Slots, 4 for Fee Pending list, 5 for Resolving Complaints, 6 for Displaying students in a room, 7 for exit");
                 n = inp.nextInt();
                 switch (n) {
                     case 1: Admin.insertStudent();
@@ -42,11 +42,13 @@ public class IsAdmin{
                         break;
                     case 5: Admin.resolveComplaints();
                         break;
-                    case 6: break;
+                    case 6: Admin.viewRoomDetails();
+                        break;
+                    case 7: break;
                     default:
                         System.out.println("Wrong choice");
                 }
-            }while(n != 6);
+            }while(n != 7);
         }
     }
 }

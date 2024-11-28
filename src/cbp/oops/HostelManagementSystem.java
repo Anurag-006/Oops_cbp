@@ -108,16 +108,16 @@ class Admin extends Person {
         int year = inp.nextInt();
         inp.nextLine();
 
-        System.out.println("Enter room preference: ");
+        System.out.println("Enter room preference: (1 : Single Room, 2 : Two Sharing, 3: Three Sharing, 4: Four Sharing)\n");
         int rp = inp.nextInt();
+        inp.nextLine();
 
         String query = String.format("select rno from room where rsize = %d and vacancies > 0", rp);
-        String rno = "";
+        String rno = null;
         try {
             Connection con = ConnectToServer.connectToServer();
             Statement stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery(query);
-            rno = "";
             if (rs.next()) {
                 rno = rs.getString(1);
             }
@@ -125,25 +125,63 @@ class Admin extends Person {
         }catch (SQLException e) {
             e.printStackTrace();
         }
-        if (rno != "") {
-            query = String.format("insert into student values ('%s', '%s', '%s', %d, %d, '%s', %d)", sid, sname, scourse, year, 135000, sid, Integer.parseInt(rno));
-            ReadAndRemoveRows.addRow(query);
+        if (rno != null) {
+            int roomFee = 0;
+            switch (rp) {
+                case 1:
+                    roomFee = 10000;
+                    break;
+                case 2:
+                    roomFee = 9000;
+                    break;
+                case 3:
+                    roomFee = 8000;
+                    break;
+                case 4:
+                    roomFee = 7000;
+                    break;
+                default:
+                    System.out.println(rp + " sharing not available.");
+            }
 
-            query = String.format("update room set vacancies = vacancies - 1 where rno = %d", Integer.parseInt(rno));
-            ReadAndRemoveRows.updateRow(query);
+            String insertQuery = String.format("insert into student values ('%s', '%s', '%s', %d, %d, '%s', %d)", sid, sname, scourse, year, roomFee, sid, Integer.parseInt(rno));
+            String updateQuery = String.format("update room set vacancies = vacancies - 1 where rno = %d", Integer.parseInt(rno));
 
-            query = "select * from student";
-            System.out.println("Student Added.");
-            PrintRows.printRows(query);
+            try (Connection con = ConnectToServer.connectToServer()) {
+                con.setAutoCommit(false);
+
+                try (Statement stmt1 = con.createStatement();
+                     Statement stmt2 = con.createStatement()) {
+
+                    stmt1.executeUpdate(insertQuery);
+
+                    stmt2.executeUpdate(updateQuery);
+
+                    con.commit();
+                    System.out.println("Student added and room allocated.");
+                } catch (SQLException e) {
+                    con.rollback();
+                    e.printStackTrace();
+                    System.out.println("Error adding student or updating room. Transaction rolled back.");
+                }
+
+                query = "select * from student";
+                System.out.println("Student Added.");
+                PrintRows.printRows(query);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                System.out.println("Database connection error.");
+            }
+
         } else {
-            System.out.println("Unable to find the room.");
+            System.out.println("No rooms available as per your preference.");
         }
     }
     public static void removeStudent() {
         System.out.println("Enter student id: ");
         Scanner inp = new Scanner(System.in);
         String sid = inp.nextLine();
-        String query = String.format("update room set vacancies = vacancies + 1 where rno = (select rno from student where id = '%s')", sid);
+        String query = String.format("update room set vacancies = vacancies + 1 where rno = (select room from student where id = '%s')", sid);
         ReadAndRemoveRows.updateRow(query);
         query = String.format("delete from student where id = '%s'",sid);
         ReadAndRemoveRows.removeRow(query);
@@ -161,8 +199,20 @@ class Admin extends Person {
         PrintRows.printRows(query);
     }
     public static void resolveComplaints() {
-        String query = "update complaint set cstatus = true where cstatus = false";
+
+        Scanner inp = new Scanner(System.in);
+        System.out.println("Enter Department name: ");
+        String dept = inp.nextLine();
+
+        String query = String.format("update complaint set cstatus = true where cname = (select cname from complaint where department = '%s' and cstatus = false limit 1)", dept);
         ReadAndRemoveRows.updateRow(query);
+    }
+    public static void viewRoomDetails() {
+        System.out.println("Enter room number: ");
+        Scanner inp = new Scanner(System.in);
+        int rno = inp.nextInt();
+        String query = String.format("select * from student where room = %d",rno);
+        PrintRows.printRows(query);
     }
 }
 

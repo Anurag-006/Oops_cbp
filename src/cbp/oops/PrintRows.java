@@ -26,7 +26,6 @@ public class PrintRows{
             }
             System.out.println("+");
 
-            // Print the whole table by using a for loop consisting of number of columns.
             while (rs.next()) {
                 System.out.print("| ");
                 for (int col = 1; col < columnCount + 1; col++) {

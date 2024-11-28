@@ -3,11 +3,11 @@ package cbp.oops;
 import java.sql.SQLException;
 import java.sql.*;
 import java.sql.Statement;
+import java.util.InputMismatchException;
 import java.util.Scanner;
 
 class Person {
     String name, id;
-
 
     Person(String name, String id) {
         this.name = name;
@@ -31,16 +31,12 @@ class Student extends Person {
             ReadAndRemoveRows.addRow(sqlQuery);
     }
     public static void getDetails(String studentId) {
-//        System.out.println("Name: " + super.name + ", Year: " + yr + ", ID: " + super.id);
         String sqlQuery = String.format("select * from student where id = '%s'",studentId);
         PrintRows.printRows(sqlQuery);
     }
-    public static void getAllStudents() {
-        String sqlQuery = "select * from student";
-        PrintRows.printRows(sqlQuery);
-    }
+
     public static void payFee(String id) {
-        System.out.println("Enter amount");
+
         Scanner inp = new Scanner(System.in);
         int fees = 0;
         String query = String.format("select feepending from student where id = '%s'",id);
@@ -48,24 +44,30 @@ class Student extends Person {
             Connection con = ConnectToServer.connectToServer();
             Statement stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery(query);
-            fees = 0;
             if (rs.next()) {
                 fees = Integer.parseInt(rs.getString(1));
             }
+
+            System.out.println("Remaining fee is: " + fees);
+            System.out.println("Enter amount");
 
         }catch (SQLException e) {
             e.printStackTrace();
         }
 
-
-        int paidAmount = inp.nextInt();
-        if (paidAmount > fees) {
-            System.out.println("Amount can not be more than the pending fee.");
-        }
-        else {
-            String sqlQuery = String.format("update student set feepending = feepending - %d where id = '%s'", paidAmount, id);
-            ReadAndRemoveRows.updateRow(sqlQuery);
-            System.out.println("Fee paid.");
+        try {
+            int paidAmount = inp.nextInt();
+            if (paidAmount > fees) {
+                System.out.println("Amount can not be more than the pending fee.");
+            } else if (paidAmount <= 0) {
+                System.out.println("Amount should be positive.");
+            } else {
+                String sqlQuery = String.format("update student set feepending = feepending - %d where id = '%s'", paidAmount, id);
+                ReadAndRemoveRows.updateRow(sqlQuery);
+                System.out.println("Fee paid.");
+            }
+        } catch (InputMismatchException e) {
+            e.printStackTrace();
         }
     }
     public static void changePassword(String id) {
@@ -87,7 +89,42 @@ class Student extends Person {
         System.out.println("Complaint issued.");
     }
 }
+class ComplaintResolver extends Thread {
+    private final String department;
 
+    public ComplaintResolver(String department) {
+        this.department = department;
+    }
+
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        String query = String.format(
+                "UPDATE complaint SET cstatus = true WHERE cname = (SELECT cname FROM complaint WHERE department = '%s' AND cstatus = false LIMIT 1)",
+                department
+        );
+
+        try (Connection con = ConnectToServer.connectToServer();
+             Statement stmt = con.createStatement()) {
+
+            int rowsUpdated = stmt.executeUpdate(query);
+
+            if (rowsUpdated > 0) {
+                System.out.println("Complaint for department '" + department + "' resolved by " + Thread.currentThread().getName());
+            } else {
+                System.out.println("No unresolved complaints for department: " + department);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Error resolving complaint for department: " + department);
+            e.printStackTrace();
+        }
+    }
+}
 
 class Admin extends Person {
     String name;
@@ -105,12 +142,22 @@ class Admin extends Person {
         System.out.println("Enter course: ");
         String scourse = inp.nextLine();
         System.out.println("Enter year: ");
-        int year = inp.nextInt();
+        int year = 0;
+        try {
+            year = inp.nextInt();
+        } catch (InputMismatchException e) {
+            e.printStackTrace();
+        }
         inp.nextLine();
 
-        System.out.println("Enter room preference: (1 : Single Room, 2 : Two Sharing, 3: Three Sharing, 4: Four Sharing)\n");
-        int rp = inp.nextInt();
-        inp.nextLine();
+        System.out.println("Enter room preference: (1 : Single Room, 2 : Two Sharing, 3: Three Sharing, 4: Four Sharing)");
+        int rp = 0;
+        try {
+            rp = inp.nextInt();
+        } catch(InputMismatchException e) {
+            System.out.println("Input must be an integer.");
+        }
+            inp.nextLine();
 
         String query = String.format("select rno from room where rsize = %d and vacancies > 0", rp);
         String rno = null;
@@ -165,7 +212,7 @@ class Admin extends Person {
                     System.out.println("Error adding student or updating room. Transaction rolled back.");
                 }
 
-                query = "select * from student";
+                query = "select * from student order by id";
                 System.out.println("Student Added.");
                 PrintRows.printRows(query);
             } catch (SQLException e) {
@@ -185,34 +232,37 @@ class Admin extends Person {
         ReadAndRemoveRows.updateRow(query);
         query = String.format("delete from student where id = '%s'",sid);
         ReadAndRemoveRows.removeRow(query);
-        query = "select * from student";
+        query = "select * from student order by id";
         System.out.println("Student Removed.");
         PrintRows.printRows(query);
     }
 
     public static void availableSlots() {
-        String query = "select rno, vacancies from room where vacancies != 0";
+        String query = "select rno, vacancies from room where vacancies != 0 order by rno";
         PrintRows.printRows(query);
     }
     public static void feePendingList() {
-        String query = "select id, name, course, feepending from student where feepending != 0";
+        String query = "select id, name, course, feepending from student where feepending != 0 order by id";
         PrintRows.printRows(query);
     }
     public static void resolveComplaints() {
-
         Scanner inp = new Scanner(System.in);
         System.out.println("Enter Department name: ");
         String dept = inp.nextLine();
-
-        String query = String.format("update complaint set cstatus = true where cname = (select cname from complaint where department = '%s' and cstatus = false limit 1)", dept);
-        ReadAndRemoveRows.updateRow(query);
+        ComplaintResolver resolver = new ComplaintResolver(dept);
+        resolver.setName("ComplaintResolver");
+        resolver.start();
     }
     public static void viewRoomDetails() {
         System.out.println("Enter room number: ");
         Scanner inp = new Scanner(System.in);
         int rno = inp.nextInt();
-        String query = String.format("select * from student where room = %d",rno);
+        String query = String.format("select * from student where room = %d order by id",rno);
         PrintRows.printRows(query);
+    }
+    public static void getAllStudents() {
+        String sqlQuery = "select * from student order by id";
+        PrintRows.printRows(sqlQuery);
     }
 }
 
@@ -235,7 +285,7 @@ public class HostelManagementSystem {
     public static void main(String[] args) {
         Scanner inp = new Scanner(System.in);
 
-        System.out.println("MENU FOR HOSTEL STUFF");
+        System.out.println("MENU FOR HOSTEL");
         int n = 0;
         boolean cont = true;
         do {
